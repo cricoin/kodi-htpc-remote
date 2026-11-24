@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="service.htpc.youtubeview" name="HTPC YouTube 封面视图" version="1.0.0" provider-name="htpc">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+    </requires>
+    <extension point="xbmc.service" library="service.py"/>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="zh_CN">YouTube 视频列表自动使用“墙”视图显示封面图</summary>
+        <summary lang="en_GB">Force Wall view (thumbnails) for YouTube add-on video lists</summary>
+        <platform>all</platform>
+    </extension>
+</addon>

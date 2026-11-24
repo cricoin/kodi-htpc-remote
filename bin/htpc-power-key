@@ -1,0 +1,42 @@
+#!/bin/sh
+# Remote power key handler (run as root).
+#   Locked   -> wake the display, then unlock without a password, show Kodi.
+#   Unlocked -> stop Kodi playback, then lock the screen. Never suspends.
+# Argument "unlock" forces unlock-only mode (used for "any key while locked").
+. /usr/local/lib/htpc-remote/htpc-common.sh
+
+t() { logger -t htpc-power-key "$1 $(date +%T.%3N)"; }
+SID=$(seat0_session)
+[ -n "$SID" ] || exit 0
+MODE="${1:-toggle}"
+t "pressed $MODE"
+
+if [ "$(loginctl show-session "$SID" -p LockedHint --value)" = yes ]; then
+    run_as_user xset dpms force on 2>/dev/null
+    t "dpms_on_sent"
+    loginctl unlock-session "$SID"
+    t "unlock_sent"
+    run_as_user xset s reset 2>/dev/null
+    /usr/local/sbin/htpc-focus-kodi
+    t "kodi_focused"
+elif [ "$MODE" = unlock ]; then
+    /usr/local/sbin/htpc-focus-kodi
+    t "already_unlocked"
+else
+    # Stop Kodi playback first (no background playback while locked).
+    if [ -n "$KODI_RPC_PASSWORD" ]; then
+        for pid in $(curl -s --noproxy "*" --max-time 2 -u "$KODI_RPC_USER:$KODI_RPC_PASSWORD" \
+                -H "Content-Type: application/json" \
+                -d '{"jsonrpc":"2.0","id":1,"method":"Player.GetActivePlayers"}' "$KODI_RPC_URL" \
+                | grep -oE '"playerid":[0-9]+' | cut -d: -f2); do
+            curl -s --noproxy "*" --max-time 2 -u "$KODI_RPC_USER:$KODI_RPC_PASSWORD" \
+                -H "Content-Type: application/json" \
+                -d "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"Player.Stop\",\"params\":{\"playerid\":$pid}}" \
+                "$KODI_RPC_URL" >/dev/null
+            t "kodi_player_${pid}_stopped"
+        done
+    fi
+    loginctl lock-session "$SID"
+    t "lock_sent"
+fi
+exit 0

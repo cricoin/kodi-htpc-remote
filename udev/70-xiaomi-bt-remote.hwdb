@@ -1,0 +1,9 @@
+# Xiaomi/Redmi Bluetooth voice remote (BLE HID 0005:2717:32B8)
+# Remap two keys that the desktop would otherwise mishandle:
+#   voice key sends F5 (0x7003e) -> space  (play/pause in Kodi)
+#   power key sends KEY_POWER (0x70066) -> KEY_SCREENLOCK (so GNOME won't suspend)
+# Reload after editing:
+#   sudo systemd-hwdb update && sudo udevadm trigger
+evdev:input:b0005v2717p32B8*
+ KEYBOARD_KEY_7003e=space
+ KEYBOARD_KEY_70066=screenlock

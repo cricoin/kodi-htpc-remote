@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Kodi cache cleanup
+
+[Timer]
+# After the HTPC has been idle for a while; adjust to taste.
+OnCalendar=*-*-* 04:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

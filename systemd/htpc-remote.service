@@ -1,0 +1,13 @@
+[Unit]
+Description=Xiaomi BLE remote handler (power unlock, long press, air mouse)
+After=bluetooth.service systemd-logind.service
+Wants=bluetooth.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/sbin/htpc-remote
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

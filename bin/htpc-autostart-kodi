@@ -1,0 +1,15 @@
+#!/bin/sh
+# Keep Kodi running fullscreen for the remote: start after login, restart if it exits.
+# On Kodi 21 nightly, the distro's old python3-requests shadows Kodi's bundled copy and
+# breaks some add-ons (e.g. the YouTube add-on). Prefer Kodi's requests when present.
+REQ="$HOME/.kodi/addons/script.module.requests/lib"
+[ -d "$REQ" ] && export PYTHONPATH="$REQ${PYTHONPATH:+:$PYTHONPATH}"
+sleep 8
+while true; do
+    if pgrep -x kodi.bin >/dev/null; then
+        sleep 5
+        continue
+    fi
+    kodi
+    sleep 3
+done

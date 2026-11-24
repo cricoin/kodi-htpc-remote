@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=HTPC Kodi autostart
+Comment=Start Kodi fullscreen and restart it if it exits
+Exec=/home/REPLACE_USER/.local/bin/htpc-autostart-kodi
+X-GNOME-Autostart-enabled=true
+NoDisplay=true

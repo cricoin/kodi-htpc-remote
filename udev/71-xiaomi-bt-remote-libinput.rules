@@ -1,0 +1,5 @@
+# The raw remote is handled only by htpc-remote.service (it re-emits keys via uinput).
+# Stop the desktop from reading it directly, otherwise the first key after a BLE
+# reconnect reaches the compositor before htpc-remote grabs the device (you would see
+# the lock screen instead of an unlock). Match by USB/BT vendor:product.
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="2717", ATTRS{id/product}=="32b8", ENV{LIBINPUT_IGNORE_DEVICE}="1"

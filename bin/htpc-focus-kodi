@@ -1,0 +1,11 @@
+#!/bin/sh
+# Bring Kodi to the front, starting it if it is not running (run as root).
+. /usr/local/lib/htpc-remote/htpc-common.sh
+
+if pgrep -x kodi.bin >/dev/null; then
+    run_as_user wmctrl -a Kodi >/dev/null 2>&1 \
+        || run_as_user xdotool search --class Kodi windowactivate >/dev/null 2>&1
+else
+    run_as_user setsid kodi >/dev/null 2>&1 &
+fi
+exit 0

@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""Xiaomi/Redmi BLE remote (2717:32B8) handler for a Kodi HTPC.
+
+Grabs the remote exclusively and re-emits keys through a virtual keyboard, adding:
+  power (KEY_SCREENLOCK after udev hwdb)  -> lock / unlock toggle (no password)
+  Home   tap: Home      long (>500 ms): bring Kodi to front (start it if closed)
+  Menu   tap: Menu      long: toggle air-mouse mode
+  Air-mouse mode: D-pad moves pointer (accelerating), OK = left click,
+                  Menu tap = right click, Back = leave mouse mode.
+  Left/Right: single step; hold = controlled repeat (continuous seek in Kodi).
+All other keys pass through unchanged (including hold/repeat, so Kodi long-press works).
+The device disappears when the remote sleeps; this daemon waits and re-grabs on reconnect.
+When the screen is locked, ANY key wakes + unlocks + shows Kodi (no password) and is swallowed.
+
+Requires: python3-evdev, and a kernel uinput module. Runs as root (udev grab + uinput).
+"""
+import glob, os, select, subprocess, syslog, threading, time
+import ctypes
+import evdev
+from evdev import ecodes as e, UInput
+
+VID, PID = 0x2717, 0x32B8      # Xiaomi/Redmi BLE voice remote
+LONG = 0.5                     # long-press threshold (s)
+REPEAT = 0.25                  # held Left/Right re-tap interval (s)
+POWER_CMD = ['/usr/local/sbin/htpc-power-key']
+UNLOCK_CMD = ['/usr/local/sbin/htpc-power-key', 'unlock']
+KODI_CMD = ['/usr/local/sbin/htpc-focus-kodi']
+DIRS = {e.KEY_UP: (0, -1), e.KEY_DOWN: (0, 1), e.KEY_LEFT: (-1, 0), e.KEY_RIGHT: (1, 0)}
+
+LOCK_STATE = {"locked": False, "hold": 0.0}
+
+
+def log(m):
+    syslog.syslog(syslog.LOG_INFO, m)
+
+
+def lock_watcher():
+    """Poll the seat0 session lock state in the background so key handling stays fast."""
+    def loop():
+        sid = None
+        while True:
+            try:
+                if not sid:
+                    out = subprocess.run(["loginctl", "list-sessions", "--no-legend"],
+                                         capture_output=True, text=True).stdout
+                    for line in out.splitlines():
+                        f = line.split()
+                        if len(f) >= 4 and f[3] == "seat0":
+                            sid = f[0]
+                            break
+                if sid:
+                    v = subprocess.run(["loginctl", "show-session", sid, "-p", "LockedHint", "--value"],
+                                       capture_output=True, text=True).stdout.strip()
+                    if v not in ("yes", "no"):
+                        sid = None
+                    elif time.monotonic() >= LOCK_STATE["hold"]:
+                        LOCK_STATE["locked"] = (v == "yes")
+            except Exception:
+                sid = None
+            time.sleep(0.3)
+    threading.Thread(target=loop, daemon=True).start()
+
+
+_seen = set()
+
+
+def find():
+    """Return a newly appeared remote event node (cheap to call on a tight poll)."""
+    nodes = set(glob.glob("/dev/input/event*"))
+    new = sorted(nodes - _seen)
+    _seen.intersection_update(nodes)
+    for p in new:
+        try:
+            d = evdev.InputDevice(p)
+        except OSError:
+            continue
+        if d.info.vendor == VID and d.info.product == PID and e.EV_KEY in d.capabilities():
+            return d
+        _seen.add(p)
+        d.close()
+    return None
+
+
+_libc = ctypes.CDLL("libc.so.6", use_errno=True)
+_inotify_fd = _libc.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC)
+_libc.inotify_add_watch(_inotify_fd, b"/dev/input", 0x100 | 0x004)  # IN_CREATE | IN_ATTRIB
+
+
+def wait_for_input_change(timeout):
+    """Block until something is created in /dev/input (or timeout)."""
+    r, _, _ = select.select([_inotify_fd], [], [], timeout)
+    if r:
+        try:
+            os.read(_inotify_fd, 4096)
+        except BlockingIOError:
+            pass
+
+
+def run(cmd):
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+kbd = UInput({e.EV_KEY: list(range(1, 0x2ff))}, name='htpc-remote-keyboard')
+mouse = UInput({e.EV_KEY: [e.BTN_LEFT, e.BTN_RIGHT], e.EV_REL: [e.REL_X, e.REL_Y]},
+               name='htpc-remote-mouse')
+
+
+def tap(ui, code):
+    ui.write(e.EV_KEY, code, 1); ui.syn()
+    ui.write(e.EV_KEY, code, 0); ui.syn()
+
+
+def serve(dev):
+    dev.grab()
+    log(f'grabbed {dev.path} {dev.name}')
+    # The key that wakes a sleeping remote arrives before we can grab the new device,
+    # so a reconnect while locked counts as "a key was pressed": unlock right away.
+    if LOCK_STATE["locked"]:
+        LOCK_STATE["locked"] = False
+        log("remote reconnected while locked: unlock")
+        LOCK_STATE["hold"] = time.monotonic() + 3.0
+        run(UNLOCK_CMD)
+        unlock_at = time.monotonic()
+    else:
+        unlock_at = 0.0
+    mouse_mode = False
+    voice_until = 0.0
+    last_power = unlock_at
+    rep_key = None
+    rep_next = 0.0
+    held = {}
+    fired = set()
+    moving = {}
+    while True:
+        timeout = 0.02 if moving or held or rep_key else None
+        r, _, _ = select.select([dev.fd], [], [], timeout)
+        now = time.monotonic()
+        for code, t0 in list(held.items()):
+            if code not in fired and now - t0 >= LONG:
+                fired.add(code)
+                if code == e.KEY_HOME:
+                    run(KODI_CMD)
+                elif code == e.KEY_COMPOSE:
+                    mouse_mode = not mouse_mode
+                    moving.clear()
+                    log(f'mouse_mode={mouse_mode}')
+        if rep_key is not None and now >= rep_next:
+            tap(kbd, rep_key)
+            rep_next = now + REPEAT
+        if moving:
+            dx = dy = 0
+            for code, t0 in moving.items():
+                speed = min(4 + (now - t0) * 30, 40)
+                dx += DIRS[code][0] * speed
+                dy += DIRS[code][1] * speed
+            mouse.write(e.EV_REL, e.REL_X, int(dx))
+            mouse.write(e.EV_REL, e.REL_Y, int(dy))
+            mouse.syn()
+        if not r:
+            continue
+        for ev in dev.read():
+            if ev.type != e.EV_KEY:
+                continue
+            code, val = ev.code, ev.value
+            if LOCK_STATE["locked"]:
+                if val == 1 and now - last_power > 1.5:
+                    last_power = now
+                    LOCK_STATE["locked"] = False
+                    log(f"key {code} while locked: unlock")
+                    LOCK_STATE["hold"] = time.monotonic() + 3.0
+                    run(UNLOCK_CMD)
+                if code == e.KEY_SPACE and val == 1:
+                    voice_until = now + 0.6
+                held.clear(); fired.clear(); moving.clear(); rep_key = None
+                continue
+            # Voice key (F5 -> space via hwdb) emits a burst of bogus reports while held.
+            if code == e.KEY_SPACE and val == 1 and now >= voice_until:
+                voice_until = now + 0.6
+                tap(kbd, e.KEY_SPACE)
+                log("voice key: play/pause, suppressing burst")
+                continue
+            if now < voice_until:
+                voice_until = now + 0.6
+                continue
+            if code == e.KEY_SCREENLOCK:
+                if val == 1 and now - last_power > 1.5:
+                    last_power = now
+                    log("power key received")
+                    run(POWER_CMD)
+                continue
+            if code in (e.KEY_HOME, e.KEY_COMPOSE):
+                if val == 1:
+                    held[code] = now
+                elif val == 0:
+                    held.pop(code, None)
+                    if code in fired:
+                        fired.discard(code)
+                    elif mouse_mode and code == e.KEY_COMPOSE:
+                        tap(mouse, e.BTN_RIGHT)
+                    else:
+                        tap(kbd, code)
+                continue
+            if mouse_mode:
+                if code in DIRS:
+                    if val == 1:
+                        moving[code] = now
+                    elif val == 0:
+                        moving.pop(code, None)
+                    continue
+                if code == e.KEY_ENTER:
+                    if val in (0, 1):
+                        mouse.write(e.EV_KEY, e.BTN_LEFT, val); mouse.syn()
+                    continue
+                if code == e.KEY_BACK:
+                    if val == 1:
+                        mouse_mode = False
+                        moving.clear()
+                        log('mouse_mode=False')
+                    continue
+            if code in (e.KEY_LEFT, e.KEY_RIGHT):
+                if val == 1:
+                    tap(kbd, code)
+                    rep_key, rep_next = code, now + 0.5
+                elif val == 0 and rep_key == code:
+                    rep_key = None
+                continue
+            kbd.write(e.EV_KEY, code, val); kbd.syn()
+
+
+def main():
+    lock_watcher()
+    log("started (lock watcher on)")
+    while True:
+        d = find()
+        if not d:
+            wait_for_input_change(1.0)
+            continue
+        try:
+            serve(d)
+        except OSError as ex:
+            log(f'device lost: {ex}')
+        finally:
+            try:
+                d.close()
+            except Exception:
+                pass
+        _seen.discard(d.path)
+
+
+if __name__ == '__main__':
+    main()

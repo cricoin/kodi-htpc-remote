@@ -1,0 +1,19 @@
+# kodi-htpc-remote configuration
+# Copy to /etc/htpc-remote.conf and edit. All scripts source this file.
+
+# The desktop user that auto-logs in and runs Kodi/X.
+# Leave empty to auto-detect the user of the active seat0 graphical session.
+HTPC_USER=""
+
+# Display manager that owns the X authority file. Used to build XAUTHORITY.
+#   gdm3  -> /run/user/<uid>/gdm/Xauthority
+#   lightdm/sddm usually export XAUTHORITY differently; adjust XAUTHORITY_PATH if needed.
+# %UID% is replaced with the numeric uid of HTPC_USER at runtime.
+XAUTHORITY_PATH="/run/user/%UID%/gdm/Xauthority"
+
+# Kodi JSON-RPC (Settings > Services > Control: allow remote control over HTTP).
+# Used only to stop playback before locking the screen. Leave the password empty
+# to skip stopping playback (the screen still locks).
+KODI_RPC_URL="http://127.0.0.1:8080/jsonrpc"
+KODI_RPC_USER="kodi"
+KODI_RPC_PASSWORD=""

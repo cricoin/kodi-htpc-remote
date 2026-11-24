@@ -1,0 +1,10 @@
+[Unit]
+Description=Prune old plugin thumbnails from the Kodi cache (via Kodi JSON-RPC)
+
+[Service]
+Type=oneshot
+# Run as the desktop user so ~ expands to the Kodi profile. Adjust if your user differs.
+User=%i
+Nice=15
+IOSchedulingClass=idle
+ExecStart=/usr/bin/python3 /usr/local/bin/kodi-cache-clean.py
