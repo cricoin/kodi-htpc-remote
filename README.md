@@ -23,6 +23,8 @@
   - 长按菜单：进入“空中鼠标”——方向键移动指针，OK 左键，菜单右键，返回退出。
   - 左右键按住：连续快退/快进（绕开 Kodi longpress 不重复的限制）。
   - 语音键：播放/暂停，并抑制长按语音键产生的杂乱上报。
+  - 语音键音频流：**长按语音键时遥控器会推流麦克风音频**（mSBC over HID），目前未启用，
+    为语音指令、语音问答、vibe coding、Typeless 式语音输入等预留扩展，见 `docs/voice.md`。
 - **udev**：把语音键/电源键重映射成可用键码，并禁止桌面直接读取遥控器（避免重连后第一键误触锁屏）。
 - **Kodi 适老化**：无长按的电视式键位、固定 10 秒步长、看一半自动续播、退出自动重开、列表显示封面。
 - **开机免密自启**：GDM 自动登录 + autostart 守护循环 + 禁用休眠。
@@ -55,7 +57,7 @@ bin/        守护进程与脚本（htpc-remote / htpc-power-key / htpc-focus-ko
 udev/       语音键/电源键 hwdb 映射 + 隐藏原始设备的 libinput 规则
 systemd/    htpc-remote.service、kodi-cache-clean@.service/.timer
 kodi/       键位、封面视图服务插件、自启动 .desktop 示例
-docs/       Kodi 设置、开机自启与电源策略、YouTube 说明
+docs/       Kodi 设置、开机自启与电源策略、YouTube、语音键扩展说明
 ```
 
 ### 安全说明
