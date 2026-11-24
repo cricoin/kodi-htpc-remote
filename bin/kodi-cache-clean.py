@@ -11,7 +11,14 @@ Reads Kodi JSON-RPC credentials from /etc/htpc-remote.conf:
     KODI_RPC_URL, KODI_RPC_USER, KODI_RPC_PASSWORD
 Edit REMOTE_HOSTS for the thumbnail sources you want pruned (default: YouTube).
 """
-import base64, json, os, subprocess, sys, time, syslog, urllib.request
+
+import base64
+import json
+import os
+import subprocess
+import syslog
+import time
+import urllib.request
 
 KEEP_DAYS = 3
 MAX_THUMBS_MB = 500
@@ -43,8 +50,9 @@ def rpc(method, params=None):
     body = {'jsonrpc': '2.0', 'id': 1, 'method': method}
     if params is not None:
         body['params'] = params
-    req = urllib.request.Request(URL, data=json.dumps(body).encode(),
-                                 headers={'Content-Type': 'application/json', 'Authorization': AUTH})
+    req = urllib.request.Request(
+        URL, data=json.dumps(body).encode(), headers={'Content-Type': 'application/json', 'Authorization': AUTH}
+    )
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(req, timeout=60) as r:
         return json.load(r).get('result')

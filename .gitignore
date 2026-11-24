@@ -4,3 +4,7 @@ __pycache__/
 ultra0-report/
 /etc-local/
 *.local
+
+# Python / uv
+.venv/
+.ruff_cache/

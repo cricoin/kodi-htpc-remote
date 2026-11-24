@@ -1,0 +1,29 @@
+[project]
+name = "kodi-htpc-remote"
+version = "0.1.0"
+description = "Xiaomi BLE remote + Kodi HTPC kiosk for elderly users"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+# Runtime dependency of the htpc-remote daemon. `xbmc` (used by the Kodi service
+# add-on) is provided by the Kodi runtime, not pip, so it is intentionally absent.
+dependencies = ["evdev>=1.6"]
+
+[dependency-groups]
+dev = ["ruff>=0.6"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+# The Kodi service add-on imports `xbmc`, which only exists inside Kodi.
+extend-exclude = ["kodi/addons/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+# This project is a collection of scripts, not an importable package.
+[tool.uv]
+package = false

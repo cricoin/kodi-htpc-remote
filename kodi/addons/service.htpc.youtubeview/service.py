@@ -22,7 +22,7 @@ while not monitor.abortRequested():
     content = xbmc.getInfoLabel('Container.Content')
     if not content or not xbmc.getInfoLabel('Container.NumItems'):
         continue                      # still loading: check again on the next tick
-    if content in CONTENT and not xbmc.getCondVisibility('Control.IsVisible(%d)' % WALL_VIEW_ID):
-        xbmc.executebuiltin('Container.SetViewMode(%d)' % WALL_VIEW_ID)
+    if content in CONTENT and not xbmc.getCondVisibility(f'Control.IsVisible({WALL_VIEW_ID})'):
+        xbmc.executebuiltin(f'Container.SetViewMode({WALL_VIEW_ID})')
         xbmc.log('[htpc.youtubeview] wall view: ' + path, xbmc.LOGINFO)
     done_path = path
