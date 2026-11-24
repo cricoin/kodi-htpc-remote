@@ -42,11 +42,14 @@
 ### 安装
 
 ```bash
+# 0) 先手动配对遥控器（只需一次），见 docs/pairing.md
 git clone https://github.com/<you>/kodi-htpc-remote.git
 cd kodi-htpc-remote
 sudo ./install.sh
 # 然后按提示编辑 /etc/htpc-remote.conf，并完成 docs/ 里的 Kodi 手动步骤
 ```
+
+**先配对遥控器**：`install.sh` 只装软件，蓝牙配对要先手动做一次，见 [docs/pairing.md](docs/pairing.md)。
 
 安装脚本会装好依赖、脚本、udev 规则、systemd 服务与定时器，以及自启动项。
 Kodi 内的键位、封面视图插件、遥控器配对、GNOME 锁屏/息屏、禁用休眠需参照 `docs/` 手动完成。
@@ -59,7 +62,7 @@ bin/        守护进程与脚本（htpc-remote / htpc-power-key / htpc-focus-ko
 udev/       语音键/电源键 hwdb 映射 + 隐藏原始设备的 libinput 规则
 systemd/    htpc-remote.service、kodi-cache-clean@.service/.timer
 kodi/       键位、封面视图服务插件、自启动 .desktop 示例
-docs/       Kodi 设置、开机自启与电源策略、YouTube、语音键扩展说明
+docs/       遥控器配对、Kodi 设置、开机自启与电源策略、YouTube、语音键扩展说明
 ```
 
 ### 安全说明
@@ -96,12 +99,15 @@ Ubuntu 22.04 desktop (GNOME/GDM); a paired, trusted Xiaomi/Redmi BLE voice remot
 ### Install
 
 ```bash
+# 0) Pair the remote once first — see docs/pairing.md
 git clone https://github.com/<you>/kodi-htpc-remote.git
 cd kodi-htpc-remote
 sudo ./install.sh
 ```
 
-Then edit `/etc/htpc-remote.conf` and finish the manual Kodi steps in `docs/`.
+Pair the Bluetooth remote by hand once before/after install — see
+[docs/pairing.md](docs/pairing.md). Then edit `/etc/htpc-remote.conf` and finish the
+manual Kodi steps in `docs/`.
 
 ### Security
 
