@@ -1,5 +1,7 @@
 # kodi-htpc-remote
 
+![一台旧笔记本用 Ubuntu + Kodi 变身家庭影音中心，用蓝牙遥控器操作，无需机顶盒 / An old laptop running Ubuntu + Kodi as a living-room media center, driven by one Bluetooth remote, no set-top box](assets/hero.jpg)
+
 [English](#english) · [中文](#中文)
 
 把一台 Ubuntu 笔记本/迷你主机变成客厅影音中心（Kodi），用**一个小米蓝牙语音遥控器**
