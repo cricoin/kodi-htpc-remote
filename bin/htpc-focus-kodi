@@ -1,5 +1,6 @@
 #!/bin/sh
 # Bring Kodi to the front, starting it if it is not running (run as root).
+# shellcheck source=bin/htpc-common.sh disable=SC1091
 . /usr/local/lib/htpc-remote/htpc-common.sh
 
 if pgrep -x kodi.bin >/dev/null; then

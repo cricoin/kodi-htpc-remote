@@ -3,6 +3,7 @@
 # Resolves HTPC_USER, its uid, and a working XAUTHORITY for `runuser` X calls.
 
 CONF="${HTPC_REMOTE_CONF:-/etc/htpc-remote.conf}"
+# shellcheck source=/dev/null
 [ -r "$CONF" ] && . "$CONF"
 
 # Auto-detect the graphical user if not configured.

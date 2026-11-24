@@ -3,6 +3,7 @@
 #   Locked   -> wake the display, then unlock without a password, show Kodi.
 #   Unlocked -> stop Kodi playback, then lock the screen. Never suspends.
 # Argument "unlock" forces unlock-only mode (used for "any key while locked").
+# shellcheck source=bin/htpc-common.sh disable=SC1091
 . /usr/local/lib/htpc-remote/htpc-common.sh
 
 t() { logger -t htpc-power-key "$1 $(date +%T.%3N)"; }
