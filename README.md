@@ -31,6 +31,8 @@
 - **Kodi 适老化**：无长按的电视式键位、固定 10 秒步长、看一半自动续播、退出自动重开、列表显示封面。
 - **开机免密自启**：GDM 自动登录 + autostart 守护循环 + 禁用休眠。
 - **缓存自动清理**：每天清理过期的插件缩略图，照顾低配机。
+- **防止根分区被日志写满**：rsyslog 过滤 GNOME 刷屏、日志按大小轮转、每 5 分钟磁盘保护；停用会触发刷屏的 Ubuntu 默认扩展。
+- **遥控器防积压**：BLE 卡顿后补发的按键直接丢弃；按住按键的重复速度受控并有上限，不会把音量一下子降到 0。
 - **YouTube（可选）**：封面视图服务，以及在旧版 Kodi 上修复官方插件的两个坑。
 
 ### 硬件/软件前提
@@ -62,7 +64,7 @@ bin/        守护进程与脚本（htpc-remote / htpc-power-key / htpc-focus-ko
 udev/       语音键/电源键 hwdb 映射 + 隐藏原始设备的 libinput 规则
 systemd/    htpc-remote.service、kodi-cache-clean@.service/.timer
 kodi/       键位、封面视图服务插件、自启动 .desktop 示例
-docs/       遥控器配对、Kodi 设置、开机自启与电源策略、YouTube、语音键扩展说明
+docs/       遥控器配对、Kodi 设置、开机自启与电源策略、YouTube、语音键扩展、故障排查
 ```
 
 ### 安全说明
@@ -88,6 +90,11 @@ docs/       遥控器配对、Kodi 设置、开机自启与电源策略、YouTub
   silent resume, auto-restart guard, thumbnail (Wall) views.
 - **Password-less kiosk autostart**: GDM auto-login + autostart guard loop + masked sleep.
 - **Cache cleanup**: a daily timer prunes stale plugin thumbnails for low-end hardware.
+- **Never fill the root disk**: rsyslog filter for a GNOME Shell log-spam loop, size-based
+  log rotation and a 5-minute disk guard; disables the Ubuntu extensions that trigger it.
+- **Burst-proof remote**: key presses flushed after a BLE stall are dropped, and held-key
+  repeat is slow and capped, so a lost release can't slam the volume to 0.
+  See `docs/troubleshooting.md`.
 - **YouTube (optional)**: a tiny service that forces thumbnail views, plus notes on
   fixing the official add-on on older Kodi builds.
 

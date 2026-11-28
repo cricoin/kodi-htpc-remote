@@ -7,7 +7,8 @@ Grabs the remote exclusively and re-emits keys through a virtual keyboard, addin
   Menu   tap: Menu      long: toggle air-mouse mode
   Air-mouse mode: D-pad moves pointer (accelerating), OK = left click,
                   Menu tap = right click, Back = leave mouse mode.
-  Left/Right: single step; hold = controlled repeat (continuous seek in Kodi).
+  Up/Down/Left/Right/Volume: one step per press; hold = slow, capped repeat.
+  Presses flushed in a burst after a BLE stall are dropped, not replayed.
 All other keys pass through unchanged (including hold/repeat, so Kodi long-press works).
 The device disappears when the remote sleeps; this daemon waits and re-grabs on reconnect.
 When the screen is locked, ANY key wakes + unlocks + shows Kodi (no password) and is swallowed.
@@ -21,7 +22,20 @@ from evdev import ecodes as e, UInput
 
 VID, PID = 0x2717, 0x32B8      # Xiaomi/Redmi BLE voice remote
 LONG = 0.5                     # long-press threshold (s)
-REPEAT = 0.25                  # held Left/Right re-tap interval (s)
+# Held keys: generate our own slow, capped repeat (kernel/X autorepeat is ignored), so a key
+# release that is lost or delayed on the BLE link can never run away (e.g. volume slammed to 0).
+# code: (initial delay s, interval s, max repeat duration s)
+REPEAT = {
+    e.KEY_LEFT: (0.5, 0.25, 30),
+    e.KEY_RIGHT: (0.5, 0.25, 30),
+    e.KEY_UP: (0.4, 0.15, 8),
+    e.KEY_DOWN: (0.4, 0.15, 8),
+    e.KEY_VOLUMEUP: (0.4, 0.2, 4),
+    e.KEY_VOLUMEDOWN: (0.4, 0.2, 4),
+}
+# A press arriving within this time of the previous key edge is a BLE duplicate, or part of a
+# burst the remote flushes after a stalled (re)connection: drop it and its release, never replay.
+DEBOUNCE = 0.035
 POWER_CMD = ['/usr/local/sbin/htpc-power-key']
 UNLOCK_CMD = ['/usr/local/sbin/htpc-power-key', 'unlock']
 KODI_CMD = ['/usr/local/sbin/htpc-focus-kodi']
@@ -128,6 +142,10 @@ def serve(dev):
     last_power = unlock_at
     rep_key = None
     rep_next = 0.0
+    rep_int = 0.25
+    rep_until = 0.0
+    last_edge = 0.0
+    dropped = set()
     held = {}
     fired = set()
     moving = {}
@@ -144,9 +162,13 @@ def serve(dev):
                     mouse_mode = not mouse_mode
                     moving.clear()
                     log(f'mouse_mode={mouse_mode}')
-        if rep_key is not None and now >= rep_next:
-            tap(kbd, rep_key)
-            rep_next = now + REPEAT
+        if rep_key is not None:
+            if now >= rep_until:
+                log(f'repeat capped for key {rep_key}')
+                rep_key = None
+            elif now >= rep_next:
+                tap(kbd, rep_key)
+                rep_next = now + rep_int
         if moving:
             dx = dy = 0
             for code, t0 in moving.items():
@@ -182,6 +204,19 @@ def serve(dev):
             if now < voice_until:
                 voice_until = now + 0.6
                 continue
+            if val == 2:
+                continue  # kernel autorepeat: we generate our own (see REPEAT)
+            if val == 1:
+                if now - last_edge < DEBOUNCE:
+                    dropped.add(code)
+                    last_edge = now
+                    continue
+                last_edge = now
+            elif val == 0:
+                if code in dropped:
+                    dropped.discard(code)
+                    continue
+                last_edge = now
             if code == e.KEY_SCREENLOCK:
                 if val == 1 and now - last_power > 1.5:
                     last_power = now
@@ -217,14 +252,18 @@ def serve(dev):
                         moving.clear()
                         log('mouse_mode=False')
                     continue
-            if code in (e.KEY_LEFT, e.KEY_RIGHT):
+            if code in REPEAT:
                 if val == 1:
                     tap(kbd, code)
-                    rep_key, rep_next = code, now + 0.5
+                    delay, rep_int, cap = REPEAT[code]
+                    rep_key, rep_next, rep_until = code, now + delay, now + cap
                 elif val == 0 and rep_key == code:
                     rep_key = None
                 continue
-            kbd.write(e.EV_KEY, code, val); kbd.syn()
+            # Every other key is a complete tap on press, so a lost release can never
+            # leave a key held down (X would autorepeat it).
+            if val == 1:
+                tap(kbd, code)
 
 
 def main():

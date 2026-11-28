@@ -1,0 +1,6 @@
+[Unit]
+Description=Keep root filesystem from filling up (truncate runaway logs)
+[Service]
+Type=oneshot
+Nice=10
+ExecStart=/usr/local/sbin/htpc-disk-guard

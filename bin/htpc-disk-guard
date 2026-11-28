@@ -1,0 +1,28 @@
+#!/bin/sh
+# Root-disk guard for the HTPC: keep "/" from filling up and freezing the desktop.
+# Runs every 5 min (htpc-disk-guard.timer). If free space on / drops below MIN_FREE_MB,
+# truncate oversized log files (keeping their last 5000 lines for diagnosis), vacuum the
+# journal, and log a warning. Never touches media, Kodi or Jellyfin data.
+MIN_FREE_MB=3072
+BIG_MB=500
+free_mb() { df -Pm / | awk 'NR==2{print $4}'; }
+
+f=$(free_mb)
+[ "$f" -ge "$MIN_FREE_MB" ] && exit 0
+
+logger -p user.warning -t htpc-disk-guard "root low: ${f}MB free, cleaning logs"
+for log in /var/log/syslog /var/log/syslog.1 /var/log/kern.log /var/log/daemon.log \
+           /var/log/messages /var/log/user.log /var/log/debug; do
+    [ -f "$log" ] || continue
+    sz=$(du -m "$log" | cut -f1)
+    if [ "$sz" -ge "$BIG_MB" ]; then
+        keep="/tmp/$(basename "$log").guard_tail_$(date +%Y%m%d_%H%M)"
+        tail -n 5000 "$log" > "$keep" 2>/dev/null
+        truncate -s 0 "$log"
+        logger -p user.warning -t htpc-disk-guard "truncated $log (${sz}MB), tail kept in $keep"
+    fi
+done
+find /var/log -name '*.gz' -size +100M -delete 2>/dev/null
+journalctl --vacuum-size=200M >/dev/null 2>&1
+logger -p user.warning -t htpc-disk-guard "root now ${f}MB -> $(free_mb)MB free"
+exit 0

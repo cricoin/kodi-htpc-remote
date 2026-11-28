@@ -23,14 +23,14 @@ scan on
 ```
 
 等待列出设备，找到名字像 `Mi Remote` / `XiaoMi Remote` / 一串 MAC 的条目，记下它的 MAC
-（形如 `A8:42:A7:05:CF:0E`）。然后：
+（形如 `AA:BB:CC:DD:EE:FF`）。然后：
 
 ```bash
 scan off
-pair A8:42:A7:05:CF:0E      # 换成你的 MAC
-trust A8:42:A7:05:CF:0E     # trust 很重要：开机自动重连全靠它
-connect A8:42:A7:05:CF:0E
-info A8:42:A7:05:CF:0E       # 应看到 Paired: yes / Trusted: yes / Connected: yes
+pair AA:BB:CC:DD:EE:FF      # 换成你的 MAC
+trust AA:BB:CC:DD:EE:FF     # trust 很重要：开机自动重连全靠它
+connect AA:BB:CC:DD:EE:FF
+info AA:BB:CC:DD:EE:FF       # 应看到 Paired: yes / Trusted: yes / Connected: yes
 exit
 ```
 
